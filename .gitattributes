@@ -1,0 +1,4 @@
+dist/disparador-whatsapp\ Setup\ 1.0.0.exe filter=lfs diff=lfs merge=lfs -text
+dist/win-unpacked/disparador-whatsapp.exe filter=lfs diff=lfs merge=lfs -text
+dist/win-unpacked/resources/app.asar filter=lfs diff=lfs merge=lfs -text
+dist/disparador-whatsapp[[:space:]]Setup[[:space:]]1.0.0.exe filter=lfs diff=lfs merge=lfs -text

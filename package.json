@@ -1,0 +1,55 @@
+{
+    "name": "disparador-whatsapp",
+    "version": "1.0.0",
+    "description": "Aplicativo de Disparo de Mensagens via WhatsApp",
+    "author": "Rafael de Paula <rafaeldepaula010@yahoo.com>",
+    "license": "MIT",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "prebuild": "if not exist dist_resources mkdir dist_resources",
+        "build": "electron-builder --win --config.asar=false"
+    },
+    "dependencies": {
+        "axios": "^1.6.2",
+        "csv-parse": "^5.5.0",
+        "pdfkit": "^0.13.0",
+        "puppeteer": "21.10.0",
+        "puppeteer-core": "21.10.0",
+        "qrcode": "^1.5.4",
+        "whatsapp-web.js": "1.27.0",
+        "xlsx": "^0.18.5"
+    },
+    "devDependencies": {
+        "7zip-bin": "^5.1.1",
+        "electron": "^28.3.3",
+        "electron-builder": "^24.13.3"
+    },
+    "build": {
+        "appId": "com.rafaeldepaula.bot",
+        "win": {
+            "target": "nsis",
+            "icon": "assets/icon.ico",
+            "requestedExecutionLevel": "requireAdministrator",
+            "extraResources": [
+                {
+                    "from": "node_modules/puppeteer-core/.local-chromium",
+                    "to": "puppeteer-chromium",
+                    "filter": [
+                        "**/*"
+                    ]
+                },
+                {
+                    "from": "node_modules/whatsapp-web.js",
+                    "to": "node_modules/whatsapp-web.js"
+                }
+            ],
+            "asar": false,
+            "forceCodeSigning": false
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true
+        }
+    }
+}

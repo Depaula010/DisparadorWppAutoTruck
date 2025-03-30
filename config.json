@@ -1,0 +1,5 @@
+{
+    "batchSize": 5,
+    "minDelaySeconds": 10,
+    "maxDelaySeconds": 17
+  }

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WhatsApp Bot</title>
+    <style>
+        #qr-code { max-width: 300px; margin: 20px; }
+        .log { font-family: monospace; margin: 5px; padding: 5px; background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>Bot de Envio WhatsApp</h1>
+    
+    <div>
+        <button onclick="selectExcel()">Selecionar Excel</button>
+        <span id="excel-path"></span>
+    </div>
+
+    <div>
+        <button onclick="selectMessage()">Selecionar Mensagem</button>
+        <span id="message-path"></span>
+    </div>
+
+    <button onclick="startBot()" id="start-btn">Iniciar Envio</button>
+    
+    <div id="qr-container" style="display: none;">
+        <h3>Escaneie o QR Code</h3>
+        <img id="qr-code">
+    </div>
+
+    <div id="logs"></div>
+
+    <script src="./renderer.js"></script>
+</body>
+</html>
