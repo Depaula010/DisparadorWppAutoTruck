@@ -193,7 +193,6 @@ module.exports.runBot = async (mainWindow, config) => {
             if (stats) {
                 if (stats.isFile()) {
                     await fsp.unlink(CHECKPOINT_FILE);
-                    mainWindow.webContents.send('log-message', '✅ Checkpoint excluído.');
                 } else {
                     await fsp.rm(CHECKPOINT_FILE, { recursive: true, force: true });
                     mainWindow.webContents.send('log-message', '⚠️ Diretório inválido excluído.');

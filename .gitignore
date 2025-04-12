@@ -2,3 +2,4 @@ node_modules/
 .wwebjs_cache/
 dist/
 dist_resources/
+puppeteer-chromium/
