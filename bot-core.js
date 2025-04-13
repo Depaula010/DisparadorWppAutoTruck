@@ -7,19 +7,16 @@ const path = require('path');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
 const configJson = require('./config.json');
-const puppeteer = require('puppeteer-core');
+const axios = require('axios');
+const { parse } = require('csv-parse/sync');
+const { execSync } = require('child_process');
 
 // ========== CONFIGURAÇÕES ==========
 
-const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTGckb-3zRCzzV0dYKjJDSlgUYiwy8fL0N_sMYDJgfrwuDhHap1x4QyvI_z9kvy4TF_q0mRh5UCl3B/pub?gid=0&single=true&output=csv';
+const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRsWKuAEKEOuyxD-TRYq1BTJCdZGGrkBaMZBKZhnp1M4fDk09tfbpTMu5WbGv924igRa4SEYBGMVv2x/pub?output=csv';
 const EXCEL_CONFIG = {
-    headerRow: 7,
-    dataStartRow: 8,
-    columns: {
-        nome: 'Nome',
-        telefone: 'Telefone Celular',
-        linha: 'Linha Digitavel'
-    }
+    headerRow: 0,
+    dataStartRow: 0
 };
 
 // Variáveis de estado
@@ -49,17 +46,17 @@ const validateAuthorization = async () => {
     try {
         const response = await axios.get(AUTH_SHEET_URL);
         const authData = parse(response.data, {
-            columns: true,
+            columns: false,
             skip_empty_lines: true,
             trim: true
         });
         const biosSerial = getBiosSerial();
 
         return authData.some(row =>
-            row.UUID === '7c05a4b4-29d0-4dcf-8179-a35f413b3c74' &&
-            row.BIOS_SERIAL === biosSerial &&
-            row.STATUS === '1'
-        );
+            row[0] === '7c05a4b4-29d0-4dcf-8179-a35f413b3c74' &&
+            row[1] === biosSerial &&
+            row[2] === '1'
+          );
     } catch (error) {
         console.error('Erro na validação de autorização:', error);
         return false;
@@ -69,10 +66,10 @@ const validateAuthorization = async () => {
 
 const USER_DATA_DIR = path.join(
     require('electron').app.getPath('documents'),
-    'ReminderTrigger'
+    'Relatorios WhatsApp Bot'
 );
 
-const reportPath = path.join(USER_DATA_DIR, 'relatorios');
+const reportPath = path.join(USER_DATA_DIR);
 
 // Caminho absoluto para o diretório do projeto
 const PROJECT_DIR = __dirname; // __dirname é o diretório do arquivo atual (geralmente a raiz do projeto)
@@ -95,117 +92,118 @@ const getChromiumPath = () => {
 
 // ========== LÓGICA PRINCIPAL ==========
 module.exports.runBot = async (mainWindow, config) => {
-    // Configurar diretórios
-    if (!fs.existsSync(USER_DATA_DIR)) {
-        fs.mkdirSync(USER_DATA_DIR, { recursive: true });
-    }
 
-    // Configurar cliente WhatsApp
-    const client = new Client({
-        authStrategy: new NoAuth(),
-        puppeteer: {
-            headless: "new",
-            executablePath: getChromiumPath(),
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage'
-            ]
+    EXCEL_CONFIG.headerRow = config.headerRow;
+    EXCEL_CONFIG.dataStartRow = config.headerRow + 1;
+
+    if ((await validateAuthorization())) {
+        // Configurar diretórios
+        if (!fs.existsSync(USER_DATA_DIR)) {
+            fs.mkdirSync(USER_DATA_DIR, { recursive: true });
         }
-    });
 
-    // ========== HANDLERS ==========
-
-    client.on('qr', async qr => {
-        const qrDataURL = await QRCode.toDataURL(qr);
-        mainWindow.webContents.send('qr-code', qrDataURL); // 👈 Evento correto
-    });
-
-    client.on('auth_failure', msg => {
-        mainWindow.webContents.send('log-message', `❌ Falha na autenticação: ${msg}`);
-    });
-
-    // ========== FLUXO DE EXECUÇÃO ==========
-    await client.initialize();
-
-    await new Promise(resolve => {
-        client.on('ready', () => {
-            mainWindow.webContents.send('log-message', '✅ WhatsApp conectado!');
-            resolve();
+        // Configurar cliente WhatsApp
+        const client = new Client({
+            authStrategy: new NoAuth(),
+            puppeteer: {
+                headless: "new",
+                executablePath: getChromiumPath(),
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage'
+                ]
+            }
         });
-    });
 
-    // if (!(await validateAuthorization())) {
-    //     mainWindow.webContents.send('log-message', `❌ Não autorizado para executar esta operação`);
-    // }
+        // ========== HANDLERS ==========
+
+        client.on('qr', async qr => {
+            const qrDataURL = await QRCode.toDataURL(qr);
+            mainWindow.webContents.send('qr-code', qrDataURL); // 👈 Evento correto
+        });
+
+        client.on('auth_failure', msg => {
+            mainWindow.webContents.send('log-message', `❌ Falha na autenticação: ${msg}`);
+        });
+
+        // ========== FLUXO DE EXECUÇÃO ==========
+        await client.initialize();
+
+        await new Promise(resolve => {
+            client.on('ready', () => {
+                mainWindow.webContents.send('log-message', '✅ WhatsApp conectado!');
+                resolve();
+            });
+        });
 
 
-    try {
-        mainWindow.webContents.send('log-message', `⏳ Dispositivo autenticado. Validando autorização...`);
-
-        // if (!(await validateAuthorization())) {
-        //   throw new Error('Não autorizado para executar esta operação');
-        // }
-
-        mainWindow.webContents.send('log-message', `Autorização validada. Carregando dados...`);
-
-        const workbook = XLSX.readFile(config.excelPath);
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const dados = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-        EXCEL_CONFIG.header = dados[EXCEL_CONFIG.headerRow].map(c => c?.toString().trim());
-        state.checkpoint = (await loadCheckpoint()).lastRow;
-
-        mainWindow.webContents.send('log-message', `🚀 Iniciando envio a partir da linha ${state.checkpoint + 1}`);
-
-        while (state.checkpoint < dados.length) {
-            const batchRows = dados.slice(
-                state.checkpoint,
-                state.checkpoint + configJson.batchSize
-            );
-
-            await processBatch(batchRows, worksheet, mainWindow, client, config);
-            state.checkpoint += configJson.batchSize;
-
-            await saveCheckpoint(state.checkpoint);
-
-            // Delay entre lotes
-            const delay = Math.random() *
-                (configJson.maxDelaySeconds - configJson.minDelaySeconds) +
-                configJson.minDelaySeconds;
-
-            mainWindow.webContents.send('log-message', `⏳ Aguardando ${delay.toFixed(2)} segundos...`);
-            await new Promise(resolve =>
-                setTimeout(resolve, delay * 1000));
-        }
-
-        state.endTime = new Date();
-        await generateReport(mainWindow);
-        mainWindow.webContents.send('log-message', `✅ Processo concluído com sucesso!`);
-
-    } catch (error) {
-        mainWindow.webContents.send('log-message', `❌ Erro crítico: ${error.message}`);
-        await generateReport(mainWindow);
-    } finally {
         try {
-            const stats = await fsp.stat(CHECKPOINT_FILE).catch(() => null);
+            mainWindow.webContents.send('log-message', `⏳ Dispositivo autenticado. Validando autorização...`);
 
-            if (stats) {
-                if (stats.isFile()) {
-                    await fsp.unlink(CHECKPOINT_FILE);
+            mainWindow.webContents.send('log-message', `Autorização validada. Carregando dados...`);
+
+            const workbook = XLSX.readFile(config.excelPath);
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const dados = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            EXCEL_CONFIG.header = dados[EXCEL_CONFIG.headerRow].map(c => c?.toString().trim());
+            state.checkpoint = (await loadCheckpoint()).lastRow;
+
+            mainWindow.webContents.send('log-message', `🚀 Iniciando envio a partir da linha ${state.checkpoint + 1}`);
+
+            while (state.checkpoint < dados.length) {
+                const batchRows = dados.slice(
+                    state.checkpoint,
+                    state.checkpoint + configJson.batchSize
+                );
+
+                await processBatch(batchRows, worksheet, mainWindow, client, config);
+                state.checkpoint += configJson.batchSize;
+
+                await saveCheckpoint(state.checkpoint);
+
+                // Delay entre lotes
+                const delay = Math.random() *
+                    (configJson.maxDelaySeconds - configJson.minDelaySeconds) +
+                    configJson.minDelaySeconds;
+
+                mainWindow.webContents.send('log-message', `⏳ Aguardando ${delay.toFixed(2)} segundos...`);
+                await new Promise(resolve =>
+                    setTimeout(resolve, delay * 1000));
+            }
+
+            state.endTime = new Date();
+            await generateReport(mainWindow);
+            mainWindow.webContents.send('log-message', `✅ Processo concluído com sucesso!`);
+
+        } catch (error) {
+            mainWindow.webContents.send('log-message', `❌ Erro crítico: ${error.message}`);
+            await generateReport(mainWindow);
+        } finally {
+            try {
+                const stats = await fsp.stat(CHECKPOINT_FILE).catch(() => null);
+
+                if (stats) {
+                    if (stats.isFile()) {
+                        await fsp.unlink(CHECKPOINT_FILE);
+                    } else {
+                        await fsp.rm(CHECKPOINT_FILE, { recursive: true, force: true });
+                        mainWindow.webContents.send('log-message', '⚠️ Diretório inválido excluído.');
+                    }
+                }
+            } catch (error) {
+                if (error.code === 'ENOENT') {
+                    console.log('Checkpoint não existe.');
                 } else {
-                    await fsp.rm(CHECKPOINT_FILE, { recursive: true, force: true });
-                    mainWindow.webContents.send('log-message', '⚠️ Diretório inválido excluído.');
+                    mainWindow.webContents.send('log-message', `❌ Erro ao limpar checkpoint: ${error.message}`);
                 }
             }
-        } catch (error) {
-            if (error.code === 'ENOENT') {
-                console.log('Checkpoint não existe.');
-            } else {
-                mainWindow.webContents.send('log-message', `❌ Erro ao limpar checkpoint: ${error.message}`);
-            }
         }
     }
+
+    mainWindow.webContents.send('log-message', `❌ Não autorizado para executar esta operação`);
+
 };
 
 // ========== FUNÇÕES DE PROCESSAMENTO ==========
@@ -273,17 +271,17 @@ function replaceVariables(template, data) {
 function validatePhone(telefone) {
     // Remove todos os caracteres não numéricos
     let cleaned = telefone.replace(/\D/g, '');
-    
+
     // Lógica específica para números com 11 dígitos (remove o 3º dígito)
     if (cleaned.length === 11) {
         cleaned = cleaned.substring(0, 2) + cleaned.substring(3);
     }
-    
+
     // Validação final
     if (!cleaned || ![10, 11].includes(cleaned.length)) {
         throw new Error(`Telefone inválido (${cleaned.length} dígitos)`);
     }
-    
+
     return cleaned; // Retorna o número normalizado
 }
 
@@ -369,8 +367,7 @@ async function generateReport(mainWindow) {
             .moveDown(1);
 
         state.errors.forEach((err, index) => {
-            doc.text(`${index + 1}. Linha ${err.linha}: ${err.nome} - ${err.telefone}`)
-                .text(`   Erro: ${err.error}`)
+            doc.text(`${index + 1}. Linha ${err.linha}: Erro: ${err.error}`)
                 .moveDown(0.5);
         });
     }

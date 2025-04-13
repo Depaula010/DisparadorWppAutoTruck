@@ -2,6 +2,7 @@
 
 // ========== DECLARAÇÃO DA CONFIGURAÇÃO ==========
 let config = {
+  headerRow: 0,
   excelPath: '',
   mensagemPath: '',
   relatorios: '' // Será preenchido via IPC
@@ -41,6 +42,14 @@ async function selectMessage() {
 // ========== CONTROLE PRINCIPAL ==========
 async function startBot() {
   try {
+
+    const headerRowInput = document.getElementById('linhas-cabecalho').value;
+    const parsedRow = parseInt(headerRowInput, 10);
+    if (isNaN(parsedRow)) {
+      throw new Error('Informe um número válido para a linha do cabeçalho!');
+    }
+    config.headerRow = parsedRow;
+
     // Validar seleção de arquivos
     if (!config.excelPath || !config.mensagemPath) {
       throw new Error('Selecione ambos os arquivos antes de iniciar!');
@@ -59,7 +68,7 @@ async function startBot() {
     // Iniciar processo
     toggleButton(true, 'Processando...');
     await window.electronAPI.startBot(config);
-    
+
   } catch (error) {
     showError(error.message);
   } finally {
