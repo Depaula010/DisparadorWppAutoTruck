@@ -214,17 +214,17 @@ async function processBatch(rows, worksheet, mainWindow, client, config) {
     const batchPromises = rows.map(async (row, index) => {
         const rowNumber = state.checkpoint + index + 1;
         try {
-            const { nome, telefone, linhaDigitavel } = processRow(row, rowNumber);
+            // Processa todas as colunas da linha
+            const rowData = processRow(row, rowNumber);
+            const number = `55${rowData.telefone_celular}@c.us`;
 
-            const number = `55${telefone}@c.us`;
+            // Carrega e substitui variáveis dinamicamente
             const mensagemTemplate = await fsp.readFile(config.mensagemPath, 'utf-8');
-            const message = mensagemTemplate
-                .replace(/{{NOME}}/g, nome)
-                .replace(/{{LINHA}}/g, linhaDigitavel);
+            const message = replaceVariables(mensagemTemplate, rowData);
 
             await client.sendMessage(number, message);
             state.successCount++;
-            mainWindow.webContents.send('log-message', `✅ [Lote] Enviado para ${nome} (Linha ${rowNumber})`);
+            mainWindow.webContents.send('log-message', `✅ [Lote] Enviado para ${rowData.nome} (Linha ${rowNumber})`);
             return true;
         } catch (error) {
             state.errorCount++;
@@ -242,40 +242,50 @@ async function processBatch(rows, worksheet, mainWindow, client, config) {
 }
 
 function processRow(row, rowNumber) {
-    const getCell = (index) => row[index]?.toString().trim() || '';
+    const rowData = {};
 
-    // Obter índices das colunas
-    const colIndex = {
-        nome: EXCEL_CONFIG.header.findIndex(c => c === EXCEL_CONFIG.columns.nome),
-        telefone: EXCEL_CONFIG.header.findIndex(c => c === EXCEL_CONFIG.columns.telefone),
-        linha: EXCEL_CONFIG.header.findIndex(c => c === EXCEL_CONFIG.columns.linha)
-    };
+    // Mapeia todas as colunas da planilha
+    EXCEL_CONFIG.header.forEach((header, index) => {
+        const columnKey = header.toLowerCase().replace(/ /g, '_');
+        rowData[columnKey] = row[index]?.toString().trim() || '';
+    });
 
-    // Processar nome com células mescladas
-    let nome = getCell(colIndex.nome);
-    if (!nome && state.lastValidName) {
-        nome = state.lastValidName;
-    } else if (nome) {
-        state.lastValidName = nome;
+    // Mantém a lógica de células mescladas para 'nome'
+    if (!rowData.nome && state.lastValidName) {
+        rowData.nome = state.lastValidName;
+    } else if (rowData.nome) {
+        state.lastValidName = rowData.nome;
     }
 
-    // Validar telefone
-    let telefone = getCell(colIndex.telefone).replace(/\D/g, '');
-    if (telefone.length === 11) {
-        telefone = telefone.substring(0, 2) + telefone.substring(3);
-    }
-    if (!telefone || ![10, 11].includes(telefone.length)) {
-        throw new Error(`Telefone inválido (${telefone.length} dígitos)`);
-    }
+    // Validações essenciais
+    rowData.telefone_celular = validatePhone(rowData.telefone_celular);
 
-    // Validar linha digitável
-    const linhaDigitavel = getCell(colIndex.linha);
-    if (!linhaDigitavel || linhaDigitavel.length < 10) {
-        throw new Error('Linha digitável inválida');
-    }
+    return rowData;
+}
 
-    return { nome, telefone, linhaDigitavel };
-};
+function replaceVariables(template, data) {
+    return Object.entries(data).reduce((msg, [key, value]) => {
+        const regex = new RegExp(`{{${key.toUpperCase()}}}`, 'gi');
+        return msg.replace(regex, value);
+    }, template);
+}
+
+function validatePhone(telefone) {
+    // Remove todos os caracteres não numéricos
+    let cleaned = telefone.replace(/\D/g, '');
+    
+    // Lógica específica para números com 11 dígitos (remove o 3º dígito)
+    if (cleaned.length === 11) {
+        cleaned = cleaned.substring(0, 2) + cleaned.substring(3);
+    }
+    
+    // Validação final
+    if (!cleaned || ![10, 11].includes(cleaned.length)) {
+        throw new Error(`Telefone inválido (${cleaned.length} dígitos)`);
+    }
+    
+    return cleaned; // Retorna o número normalizado
+}
 
 // ========== CHECKPOINT SYSTEM ==========
 async function loadCheckpoint() {
