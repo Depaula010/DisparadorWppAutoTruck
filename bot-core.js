@@ -56,7 +56,7 @@ const validateAuthorization = async () => {
             row[0] === '7c05a4b4-29d0-4dcf-8179-a35f413b3c74' &&
             row[1] === biosSerial &&
             row[2] === '1'
-          );
+        );
     } catch (error) {
         console.error('Erro na validação de autorização:', error);
         return false;
@@ -200,9 +200,11 @@ module.exports.runBot = async (mainWindow, config) => {
                 }
             }
         }
+    } else {
+
+        mainWindow.webContents.send('log-message', `❌ Não autorizado para executar esta operação`);
     }
 
-    mainWindow.webContents.send('log-message', `❌ Não autorizado para executar esta operação`);
 
 };
 
