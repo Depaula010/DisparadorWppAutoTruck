@@ -55,16 +55,6 @@ async function startBot() {
       throw new Error('Selecione ambos os arquivos antes de iniciar!');
     }
 
-    // Configurar listeners
-    window.electronAPI.onLogMessage((_, message) => {
-      addLog(message);
-    });
-
-    window.electronAPI.onQRCode((_, qrDataURL) => {
-      qrImage.src = qrDataURL;
-      qrContainer.style.display = 'block';
-    });
-
     // Iniciar processo
     toggleButton(true, 'Processando...');
     await window.electronAPI.startBot(config);
@@ -101,6 +91,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Obter caminho de relatórios do main process
   window.electronAPI.getReportsDir().then(dir => {
     config.relatorios = dir;
+  });
+
+  // Configurar listeners
+  window.electronAPI.onLogMessage((_, message) => {
+    addLog(message);
+  });
+
+  window.electronAPI.onQRCode((_, qrDataURL) => {
+    qrImage.src = qrDataURL;
+    qrContainer.style.display = 'block';
   });
 
   // Event listeners

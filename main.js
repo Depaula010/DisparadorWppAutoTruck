@@ -24,7 +24,6 @@ ipcMain.handle('select-file', async (_, options) => {
 });
 
 ipcMain.handle('start-bot', async (_, config) => {
-  const { runBot } = require('./bot-core');
   return await runBot(mainWindow, config); // Passar mainWindow como parâmetro
 });
 

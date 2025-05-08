@@ -13,7 +13,7 @@ const { execSync } = require('child_process');
 
 // ========== CONFIGURAÇÕES ==========
 
-const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRsWKuAEKEOuyxD-TRYq1BTJCdZGGrkBaMZBKZhnp1M4fDk09tfbpTMu5WbGv924igRa4SEYBGMVv2x/pub?output=csv';
+const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjLdHJqFuhYcRfny13nrr7aVjlZerHTx7LbDga_KrLGRYB2z3KsRqRuex7vkf_fWITtA5aSd6QSaBq/pub?gid=0&single=true&output=csv';
 const EXCEL_CONFIG = {
     headerRow: 0,
     dataStartRow: 0
@@ -34,7 +34,7 @@ let state = {
 const getBiosSerial = () => {
     try {
         return process.platform === 'win32'
-            ? execSync('wmic bios get serialnumber').toString().split('\n')[1].trim()
+            ? execSync('wmic csproduct get uuid').toString().split('\n')[1].trim()
             : execSync('dmidecode -s system-serial-number').toString().trim();
     } catch (error) {
         console.error('Erro ao obter serial do BIOS:', error);
@@ -53,7 +53,7 @@ const validateAuthorization = async () => {
         const biosSerial = getBiosSerial();
 
         return authData.some(row =>
-            row[0] === '7c05a4b4-29d0-4dcf-8179-a35f413b3c74' &&
+            row[0] === 'c99ed906-5444-49b8-acb2-07f1300d7ddb' &&
             row[1] === biosSerial &&
             row[2] === '1'
         );
