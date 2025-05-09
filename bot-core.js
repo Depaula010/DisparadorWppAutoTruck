@@ -13,6 +13,8 @@ const { execSync } = require('child_process');
 
 // ========== CONFIGURAÇÕES ==========
 
+// const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTGckb-3zRCzzV0dYKjJDSlgUYiwy8fL0N_sMYDJgfrwuDhHap1x4QyvI_z9kvy4TF_q0mRh5UCl3B/pub?gid=0&single=true&output=csv';
+//LOCALHOST
 const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjLdHJqFuhYcRfny13nrr7aVjlZerHTx7LbDga_KrLGRYB2z3KsRqRuex7vkf_fWITtA5aSd6QSaBq/pub?gid=0&single=true&output=csv';
 const EXCEL_CONFIG = {
     headerRow: 0,
@@ -42,6 +44,22 @@ const getBiosSerial = () => {
     }
 };
 
+// const getBiosSerial = () => {
+//     try {
+//         return process.platform === 'win32'
+//             ? execSync('wmic bios get serialnumber').toString().split('\n')[1].trim()
+//             : execSync('dmidecode -s system-serial-number').toString().trim();
+//     } catch (error) {
+//         console.error('Erro ao obter serial do BIOS:', error);
+//         return null;
+//     }
+// };
+
+//LOCALHOST
+const id = 'c99ed906-5444-49b8-acb2-07f1300d7ddb';
+// const id = 'c99ed906-5444-49b8-acb2-07f1300d7ddb';
+
+
 const validateAuthorization = async () => {
     try {
         const response = await axios.get(AUTH_SHEET_URL);
@@ -53,7 +71,7 @@ const validateAuthorization = async () => {
         const biosSerial = getBiosSerial();
 
         return authData.some(row =>
-            row[0] === 'c99ed906-5444-49b8-acb2-07f1300d7ddb' &&
+            row[0] === id &&
             row[1] === biosSerial &&
             row[2] === '1'
         );
@@ -246,7 +264,7 @@ function processRow(row, rowNumber) {
 
     // Mapeia todas as colunas da planilha
     EXCEL_CONFIG.header.forEach((header, index) => {
-        const columnKey = header.toLowerCase().replace(/ /g, '_');
+        const columnKey = header.toLowerCase();
         rowData[columnKey] = row[index]?.toString().trim() || '';
     });
 
@@ -263,11 +281,66 @@ function processRow(row, rowNumber) {
     return rowData;
 }
 
+// function replaceVariables(template, data) {
+//     return Object.entries(data).reduce((msg, [key, value]) => {
+//         const regex = new RegExp(`{{${key.toUpperCase()}}}`, 'gi');
+//         return msg.replace(regex, value);
+//     }, template);
+// }
+
 function replaceVariables(template, data) {
-    return Object.entries(data).reduce((msg, [key, value]) => {
+    return Object.entries(data).reduce((msg, [key, rawValue]) => {
+        let value = rawValue;
+
+        // Se a chave contém 'data' (case-insensitive), tentamos converter
+        if (/data/i.test(key)) {
+            // Se veio um número (Excel serial)
+            if (!isNaN(rawValue)) {
+                const dt = excelSerialToDate(Number(rawValue));
+                value = formatDateBR(dt);
+            }
+            // Se veio string no formato ISO ou BR, podemos normalizar
+            else if (typeof rawValue === 'string') {
+                // ISO yyyy-mm-dd
+                const isoMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (isoMatch) {
+                    value = formatDateBR(new Date(rawValue));
+                }
+                // BR dd/mm/yyyy → aceita como está ou parse para validar
+                else if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawValue)) {
+                    // opcional: validar construindo new Date
+                    value = rawValue;
+                }
+            }
+        }
+
+        // Substitui {{CHAVE}} por value
         const regex = new RegExp(`{{${key.toUpperCase()}}}`, 'gi');
         return msg.replace(regex, value);
     }, template);
+}
+
+function excelSerialToDate(serial) {
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+    // 1899-12-30 é o “dia zero” do Excel (corrige também o bug de ano bissexto de 1900)
+    const excelEpoch = Date.UTC(1899, 11, 30);
+
+    // multiplica pelo número de milissegundos de cada dia
+    const dtUTC = new Date(excelEpoch + serial * MS_PER_DAY);
+
+    // devolve só o componente de data (ano, mês, dia), jogando fora horas/minutos
+    return new Date(dtUTC.getUTCFullYear(), dtUTC.getUTCMonth(), dtUTC.getUTCDate());
+}
+
+/**
+ * Formata um Date JS como dd/mm/yyyy
+ */
+function formatDateBR(date) {
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
 }
 
 function validatePhone(telefone) {
