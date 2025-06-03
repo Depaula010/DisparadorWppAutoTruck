@@ -4,7 +4,8 @@ let config = {
   headerRow: 0,
   excelPath: '',
   mensagemPath: '',
-  useSession: true
+  useSession: true,
+  useCheckpoint: true
 };
 
 const startButton = document.getElementById('start-btn');
@@ -15,6 +16,8 @@ const qrImage = document.getElementById('qr-code');
 const qrContainer = document.getElementById('qr-container');
 const sessionContainer = document.getElementById('session-container');
 const useSessionCheckbox = document.getElementById('use-session-checkbox');
+const checkpointContainer = document.getElementById('checkpoint-container');
+const useCheckpointCheckbox = document.getElementById('use-checkpoint-checkbox');
 
 async function selectExcel() {
   try {
@@ -58,14 +61,14 @@ async function startBot() {
     if (!config.excelPath || !config.mensagemPath) {
       throw new Error('Selecione o arquivo Excel e o arquivo de mensagem!');
     }
-    
-    debugger
+
+
     config.useSession = useSessionCheckbox.checked;
+    config.useCheckpoint = useCheckpointCheckbox.checked;
 
     toggleButton(true, 'Processando...');
     qrContainer.style.display = 'none';
-    
-    // ✅ CORREÇÃO: Adicionado 'await' e bloco try/finally para controle do botão
+
     await window.electronAPI.startBot(config);
 
   } catch (error) {
@@ -98,6 +101,12 @@ document.addEventListener('DOMContentLoaded', () => {
   window.electronAPI.checkSession().then(sessionExists => {
     if (sessionExists) {
       sessionContainer.style.display = 'block';
+    }
+  });
+
+  window.electronAPI.checkCheckpoint().then(checkpointExists => {
+    if (checkpointExists) {
+      checkpointContainer.style.display = 'block';
     }
   });
 

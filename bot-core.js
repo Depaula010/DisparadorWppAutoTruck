@@ -35,7 +35,7 @@ let state = {
 };
 
 
-const getBiosSerial = () => {
+const getBiosSerialLocal = () => {
     try {
         return process.platform === 'win32'
             ? execSync('wmic csproduct get uuid').toString().split('\n')[1].trim()
@@ -71,6 +71,7 @@ const validateAuthorization = async () => {
             skip_empty_lines: true,
             trim: true
         });
+        // const biosSerial = getBiosSerialLocal();
         const biosSerial = getBiosSerial();
 
         return authData.some(row =>

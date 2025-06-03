@@ -7,7 +7,7 @@ const { runBot } = require('./bot-core');
 let mainWindow;
 
 const SESSION_PATH = path.join(__dirname, '.wwebjs_auth');
-const SESSION_PATH_CACHE = path.join(__dirname, '.wwebjs_cache');
+const CHECKPOINT_PATH = path.join(__dirname, 'checkpoint.json');
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -25,6 +25,10 @@ function createWindow() {
 
 ipcMain.handle('check-session', () => {
   return fs.existsSync(SESSION_PATH);
+});
+
+ipcMain.handle('check-checkpoint', () => {
+  return fs.existsSync(CHECKPOINT_PATH);
 });
 
 ipcMain.handle('select-file', async (_, options) => {
@@ -46,7 +50,18 @@ ipcMain.handle('start-bot', async (event, config) => {
       return; // Interrompe
     }
   }
-  
+
+  if (config.useCheckpoint === false && fs.existsSync(CHECKPOINT_PATH)) {
+    try {
+      fs.unlinkSync(CHECKPOINT_PATH); // Usa unlinkSync para apagar o arquivo
+      mainWindow.webContents.send('log-message', 'ℹ️ Checkpoint reiniciado. O envio começará do início da planilha.');
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        mainWindow.webContents.send('log-message', `❌ Erro ao remover checkpoint: ${error.message}`);
+      }
+    }
+  }
+
   // Executa o bot e espera a conclusão (ou erro)
   await runBot(mainWindow, config);
 });

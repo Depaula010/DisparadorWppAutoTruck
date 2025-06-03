@@ -10,7 +10,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Listeners de eventos
   onLogMessage: (callback) => ipcRenderer.on('log-message', callback),
   onQRCode: (callback) => ipcRenderer.on('qr-code', callback),
-
-  // ✅ NOVA FUNÇÃO ADICIONADA
-  checkSession: () => ipcRenderer.invoke('check-session')
+  checkSession: () => ipcRenderer.invoke('check-session'),
+  checkCheckpoint: () => ipcRenderer.invoke('check-checkpoint')
 });
