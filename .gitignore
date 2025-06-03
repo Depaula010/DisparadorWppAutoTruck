@@ -4,3 +4,4 @@ dist/
 dist_resources/
 puppeteer-chromium/
 session/
+session-bot-wpp/

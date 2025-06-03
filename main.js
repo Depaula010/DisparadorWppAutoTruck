@@ -1,8 +1,13 @@
+// main.js
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { runBot } = require('./bot-core');
 
 let mainWindow;
+
+const SESSION_PATH = path.join(__dirname, '.wwebjs_auth');
+const SESSION_PATH_CACHE = path.join(__dirname, '.wwebjs_cache');
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -18,26 +23,41 @@ function createWindow() {
   mainWindow.loadFile('index.html');
 }
 
+ipcMain.handle('check-session', () => {
+  return fs.existsSync(SESSION_PATH);
+});
+
 ipcMain.handle('select-file', async (_, options) => {
   const result = await dialog.showOpenDialog(mainWindow, options);
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
   return result.filePaths[0];
 });
 
-ipcMain.handle('start-bot', async (_, config) => {
-  return await runBot(mainWindow, config); // Passar mainWindow como parâmetro
+// ✅ CORREÇÃO: Revertido para ipcMain.handle para comunicação de duas vias
+ipcMain.handle('start-bot', async (event, config) => {
+  if (config.useSession === false && fs.existsSync(SESSION_PATH)) {
+    try {
+      fs.rmSync(SESSION_PATH, { recursive: true, force: true });
+      mainWindow.webContents.send('log-message', 'Sessão anterior removida. Um novo QR Code será gerado.');
+    } catch (error) {
+      mainWindow.webContents.send('log-message', `❌ Erro ao remover sessão: ${error.message}`);
+      return; // Interrompe
+    }
+  }
+  
+  // Executa o bot e espera a conclusão (ou erro)
+  await runBot(mainWindow, config);
 });
 
-// Configuração correta do ciclo de vida do Electron
 app.whenReady().then(() => {
   createWindow();
-
-  // macOS: Recria a janela quando o app é reativado
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-// Fecha o app quando todas as janelas são fechadas (exceto no macOS)
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });

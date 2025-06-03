@@ -1,20 +1,45 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>WhatsApp Bot</title>
     <style>
-        #qr-code { max-width: 300px; margin: 20px; }
-        .log { font-family: monospace; margin: 5px; padding: 5px; background: #f0f0f0; }
-        h1 { font-family: Arial, sans-serif; color: #333; }
-        #linhas-cabecalho-label { font-family: Arial, sans-serif; font-size: 8; color: #333; }
-        #info { font-family: Arial, sans-serif; color: #555; margin-bottom: 20px; }
+        #qr-code {
+            max-width: 300px;
+            margin: 20px;
+        }
+
+        .log {
+            font-family: monospace;
+            margin: 5px;
+            padding: 5px;
+            background: #f0f0f0;
+        }
+
+        h1 {
+            font-family: Arial, sans-serif;
+            color: #333;
+        }
+
+        #linhas-cabecalho-label {
+            font-family: Arial, sans-serif;
+            font-size: 8;
+            color: #333;
+        }
+
+        #info {
+            font-family: Arial, sans-serif;
+            color: #555;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
+
 <body>
     <h1>WhatsApp Bot</h1>
 
     <div id="info">
-        <a href="termos.pdf" target="_blank">📄 Termos de Uso e Política de Privacidade</a> | 
+        <a href="termos.pdf" target="_blank">📄 Termos de Uso e Política de Privacidade</a> |
         <a href="manual.pdf" target="_blank">📘 Manual</a>
     </div>
 
@@ -22,19 +47,11 @@
 
     <div>
         <label for="linhas-cabecalho" id="linhas-cabecalho-label">
-          Informe o número da linha onde o cabeçalho da planilha termina.
+            Informe o número da linha onde o cabeçalho da planilha termina.
         </label>
         <br>
-        <input 
-          type="number" 
-          id="linhas-cabecalho" 
-          name="headerRow" 
-          min="0" 
-          step="1"
-          placeholder="Ex: 1"
-          required
-        />
-      </div>
+        <input type="number" id="linhas-cabecalho" name="headerRow" min="0" step="1" placeholder="Ex: 1" required />
+    </div>
 
     <br>
 
@@ -52,8 +69,13 @@
 
     <br>
 
+    <div id="session-container" style="display: none; margin-bottom: 15px; font-family: Arial, sans-serif;">
+        <input type="checkbox" id="use-session-checkbox" checked>
+        <label for="use-session-checkbox">Usar sessão salva (não ler QR Code novamente)</label>
+    </div>
+
     <button onclick="startBot()" id="start-btn">Iniciar Envio</button>
-    
+
     <div id="qr-container" style="display: none;">
         <h3>Escaneie o QR Code</h3>
         <img id="qr-code">
@@ -63,4 +85,5 @@
 
     <script src="./renderer.js"></script>
 </body>
+
 </html>

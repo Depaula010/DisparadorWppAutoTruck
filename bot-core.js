@@ -125,7 +125,7 @@ module.exports.runBot = async (mainWindow, config) => {
 
         // Configurar cliente WhatsApp
         const client = new Client({
-            authStrategy: new NoAuth(),
+            authStrategy: new LocalAuth({ clientId: "bot-wpp" }),
             puppeteer: {
                 headless: "new",
                 executablePath: getChromiumPath(),
@@ -202,6 +202,20 @@ module.exports.runBot = async (mainWindow, config) => {
             mainWindow.webContents.send('log-message', `❌ Erro crítico: ${error.message}`);
             await generateReport(mainWindow);
         } finally {
+
+            // ✅ INÍCIO DA CORREÇÃO
+            // Este bloco garante que o cliente seja finalizado corretamente,
+            // salvando a sessão de forma consistente no disco.
+            try {
+                if (client) {
+                    await client.destroy();
+                    mainWindow.webContents.send('log-message', '🔌 Cliente WhatsApp finalizado.');
+                }
+            } catch (e) {
+                mainWindow.webContents.send('log-message', `❌ Erro ao finalizar o cliente: ${e.message}`);
+            }
+            // ✅ FIM DA CORREÇÃO
+
             try {
                 const stats = await fsp.stat(CHECKPOINT_FILE).catch(() => null);
 
