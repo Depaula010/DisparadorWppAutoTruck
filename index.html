@@ -1,20 +1,126 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>WhatsApp Bot</title>
     <style>
-        #qr-code { max-width: 300px; margin: 20px; }
-        .log { font-family: monospace; margin: 5px; padding: 5px; background: #f0f0f0; }
-        h1 { font-family: Arial, sans-serif; color: #333; }
-        #linhas-cabecalho-label { font-family: Arial, sans-serif; font-size: 8; color: #333; }
-        #info { font-family: Arial, sans-serif; color: #555; margin-bottom: 20px; }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10px 30px;
+            background-color: #f8f9fa;
+        }
+
+        #qr-code {
+            max-width: 300px;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background-color: white;
+        }
+
+        .log {
+            font-family: monospace;
+            margin: 5px 0;
+            padding: 8px;
+            background: #e9ecef;
+            border-left: 3px solid #007bff;
+            border-radius: 3px;
+        }
+
+        h1 {
+            color: #343a40;
+        }
+
+        #info {
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px 0;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        button:hover {
+            background-color: #5a6268;
+        }
+
+        #start-btn {
+            background-color: #28a745;
+        }
+
+        #start-btn:hover {
+            background-color: #218838;
+        }
+
+        button:disabled {
+            background-color: #ced4da;
+            cursor: not-allowed;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        /* ✅ CORREÇÃO: A regra agora é mais específica e só se aplica a labels dentro de .form-group */
+        .form-group>label {
+            display: block;
+            margin-bottom: 5px;
+            color: #495057;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input {
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        /* Esta regra agora funciona corretamente pois não herda mais 'display: block' */
+        .checkbox-group label {
+            margin-bottom: 0;
+            font-weight: normal;
+            white-space: nowrap;
+        }
     </style>
 </head>
+
 <body>
     <h1>WhatsApp Bot</h1>
 
     <div id="info">
-        <a href="termos.pdf" target="_blank">📄 Termos de Uso e Política de Privacidade</a> | 
+        <a href="termos.pdf" target="_blank">📄 Termos de Uso e Política de Privacidade</a> |
         <a href="manual.pdf" target="_blank">📘 Manual</a>
     </div>
 
@@ -22,19 +128,11 @@
 
     <div>
         <label for="linhas-cabecalho" id="linhas-cabecalho-label">
-          Informe o número da linha onde o cabeçalho da planilha termina.
+            Informe o número da linha onde o cabeçalho da planilha termina.
         </label>
         <br>
-        <input 
-          type="number" 
-          id="linhas-cabecalho" 
-          name="headerRow" 
-          min="0" 
-          step="1"
-          placeholder="Ex: 1"
-          required
-        />
-      </div>
+        <input type="number" id="linhas-cabecalho" name="headerRow" min="0" step="1" placeholder="Ex: 1" required />
+    </div>
 
     <br>
 
@@ -52,8 +150,18 @@
 
     <br>
 
+    <div id="session-container" style="display: none; margin-bottom: 15px; font-family: Arial, sans-serif;">
+        <input type="checkbox" id="use-session-checkbox" checked>
+        <label for="use-session-checkbox" class="textos">Usar sessão salva (não ler QR Code novamente)</label>
+    </div>
+
+    <div id="checkpoint-container" style="display: none; margin-bottom: 15px; font-family: Arial, sans-serif;">
+        <input type="checkbox" id="use-checkpoint-checkbox" checked>
+        <label for="use-checkpoint-checkbox" class="textos">Continuar envio do ponto em que parou</label>
+    </div>
+
     <button onclick="startBot()" id="start-btn">Iniciar Envio</button>
-    
+
     <div id="qr-container" style="display: none;">
         <h3>Escaneie o QR Code</h3>
         <img id="qr-code">
@@ -63,4 +171,5 @@
 
     <script src="./renderer.js"></script>
 </body>
+
 </html>

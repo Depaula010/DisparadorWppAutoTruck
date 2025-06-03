@@ -1,28 +1,33 @@
 // renderer.js
 
-// ========== DECLARAÇÃO DA CONFIGURAÇÃO ==========
 let config = {
   headerRow: 0,
   excelPath: '',
   mensagemPath: '',
-  relatorios: '' // Será preenchido via IPC
+  useSession: true,
+  useCheckpoint: true
 };
 
-// ========== ELEMENTOS DA INTERFACE ==========
 const startButton = document.getElementById('start-btn');
 const excelPathElement = document.getElementById('excel-path');
 const messagePathElement = document.getElementById('message-path');
 const logsDiv = document.getElementById('logs');
 const qrImage = document.getElementById('qr-code');
 const qrContainer = document.getElementById('qr-container');
+const sessionContainer = document.getElementById('session-container');
+const useSessionCheckbox = document.getElementById('use-session-checkbox');
+const checkpointContainer = document.getElementById('checkpoint-container');
+const useCheckpointCheckbox = document.getElementById('use-checkpoint-checkbox');
 
-// ========== FUNÇÕES DE SELEÇÃO DE ARQUIVOS ==========
 async function selectExcel() {
   try {
-    config.excelPath = await window.electronAPI.selectFile({
+    const path = await window.electronAPI.selectFile({
       filters: [{ name: 'Planilhas Excel', extensions: ['xls', 'xlsx'] }]
     });
-    excelPathElement.textContent = config.excelPath;
+    if (path) {
+      config.excelPath = path;
+      excelPathElement.textContent = config.excelPath;
+    }
   } catch (error) {
     showError(`Erro ao selecionar planilha: ${error.message}`);
   }
@@ -30,44 +35,50 @@ async function selectExcel() {
 
 async function selectMessage() {
   try {
-    config.mensagemPath = await window.electronAPI.selectFile({
+    const path = await window.electronAPI.selectFile({
       filters: [{ name: 'Arquivos de Texto', extensions: ['txt'] }]
     });
-    messagePathElement.textContent = config.mensagemPath;
+    if (path) {
+      config.mensagemPath = path;
+      messagePathElement.textContent = config.mensagemPath;
+    }
   } catch (error) {
     showError(`Erro ao selecionar mensagem: ${error.message}`);
   }
 }
 
-// ========== CONTROLE PRINCIPAL ==========
 async function startBot() {
   try {
-
     const headerRowInput = document.getElementById('linhas-cabecalho').value;
-    const parsedRow = parseInt(headerRowInput, 10);
-    if (isNaN(parsedRow)) {
-      throw new Error('Informe um número válido para a linha do cabeçalho!');
+    if (headerRowInput === '') {
+      throw new Error('Informe a linha do cabeçalho!');
     }
-    config.headerRow = parsedRow;
+    config.headerRow = parseInt(headerRowInput, 10);
+    if (isNaN(config.headerRow)) {
+      throw new Error('O número da linha do cabeçalho é inválido!');
+    }
 
-    // Validar seleção de arquivos
     if (!config.excelPath || !config.mensagemPath) {
-      throw new Error('Selecione ambos os arquivos antes de iniciar!');
+      throw new Error('Selecione o arquivo Excel e o arquivo de mensagem!');
     }
 
-    // Iniciar processo
+
+    config.useSession = useSessionCheckbox.checked;
+    config.useCheckpoint = useCheckpointCheckbox.checked;
+
     toggleButton(true, 'Processando...');
+    qrContainer.style.display = 'none';
+
     await window.electronAPI.startBot(config);
 
   } catch (error) {
     showError(error.message);
   } finally {
+    // Este bloco garante que o botão seja reativado ao final do processo
     toggleButton(false, 'Iniciar Envio');
-    qrContainer.style.display = 'none';
   }
 }
 
-// ========== FUNÇÕES AUXILIARES ==========
 function addLog(message, type = 'info') {
   const logElement = document.createElement('div');
   logElement.className = `log log-${type}`;
@@ -86,14 +97,19 @@ function showError(message) {
   alert(message);
 }
 
-// ========== INICIALIZAÇÃO ==========
 document.addEventListener('DOMContentLoaded', () => {
-  // Obter caminho de relatórios do main process
-  window.electronAPI.getReportsDir().then(dir => {
-    config.relatorios = dir;
+  window.electronAPI.checkSession().then(sessionExists => {
+    if (sessionExists) {
+      sessionContainer.style.display = 'block';
+    }
   });
 
-  // Configurar listeners
+  window.electronAPI.checkCheckpoint().then(checkpointExists => {
+    if (checkpointExists) {
+      checkpointContainer.style.display = 'block';
+    }
+  });
+
   window.electronAPI.onLogMessage((_, message) => {
     addLog(message);
   });
@@ -101,8 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.electronAPI.onQRCode((_, qrDataURL) => {
     qrImage.src = qrDataURL;
     qrContainer.style.display = 'block';
+    addLog('Aguardando leitura do QR Code...');
   });
-
-  // Event listeners
-  startButton.addEventListener('click', startBot);
 });
