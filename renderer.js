@@ -2,6 +2,7 @@
 
 // ========== DECLARAÇÃO DA CONFIGURAÇÃO ==========
 let config = {
+  headerRow: 0,
   excelPath: '',
   mensagemPath: '',
   relatorios: '' // Será preenchido via IPC
@@ -41,25 +42,23 @@ async function selectMessage() {
 // ========== CONTROLE PRINCIPAL ==========
 async function startBot() {
   try {
+
+    const headerRowInput = document.getElementById('linhas-cabecalho').value;
+    const parsedRow = parseInt(headerRowInput, 10);
+    if (isNaN(parsedRow)) {
+      throw new Error('Informe um número válido para a linha do cabeçalho!');
+    }
+    config.headerRow = parsedRow;
+
     // Validar seleção de arquivos
     if (!config.excelPath || !config.mensagemPath) {
       throw new Error('Selecione ambos os arquivos antes de iniciar!');
     }
 
-    // Configurar listeners
-    window.electronAPI.onLogMessage((_, message) => {
-      addLog(message);
-    });
-
-    window.electronAPI.onQRCode((_, qrDataURL) => {
-      qrImage.src = qrDataURL;
-      qrContainer.style.display = 'block';
-    });
-
     // Iniciar processo
     toggleButton(true, 'Processando...');
     await window.electronAPI.startBot(config);
-    
+
   } catch (error) {
     showError(error.message);
   } finally {
@@ -92,6 +91,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Obter caminho de relatórios do main process
   window.electronAPI.getReportsDir().then(dir => {
     config.relatorios = dir;
+  });
+
+  // Configurar listeners
+  window.electronAPI.onLogMessage((_, message) => {
+    addLog(message);
+  });
+
+  window.electronAPI.onQRCode((_, qrDataURL) => {
+    qrImage.src = qrDataURL;
+    qrContainer.style.display = 'block';
   });
 
   // Event listeners

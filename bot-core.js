@@ -7,19 +7,20 @@ const path = require('path');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
 const configJson = require('./config.json');
-const puppeteer = require('puppeteer-core');
+const axios = require('axios');
+const { parse } = require('csv-parse/sync');
+const { execSync } = require('child_process');
 
 // ========== CONFIGURAÇÕES ==========
 
-const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTGckb-3zRCzzV0dYKjJDSlgUYiwy8fL0N_sMYDJgfrwuDhHap1x4QyvI_z9kvy4TF_q0mRh5UCl3B/pub?gid=0&single=true&output=csv';
+//LOCALHOST
+const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjLdHJqFuhYcRfny13nrr7aVjlZerHTx7LbDga_KrLGRYB2z3KsRqRuex7vkf_fWITtA5aSd6QSaBq/pub?gid=0&single=true&output=csv';
+
+// const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTGckb-3zRCzzV0dYKjJDSlgUYiwy8fL0N_sMYDJgfrwuDhHap1x4QyvI_z9kvy4TF_q0mRh5UCl3B/pub?gid=0&single=true&output=csv';
+
 const EXCEL_CONFIG = {
-    headerRow: 7,
-    dataStartRow: 8,
-    columns: {
-        nome: 'Nome',
-        telefone: 'Telefone Celular',
-        linha: 'Linha Digitavel'
-    }
+    headerRow: 0,
+    dataStartRow: 0
 };
 
 // Variáveis de estado
@@ -37,7 +38,7 @@ let state = {
 const getBiosSerial = () => {
     try {
         return process.platform === 'win32'
-            ? execSync('wmic bios get serialnumber').toString().split('\n')[1].trim()
+            ? execSync('wmic csproduct get uuid').toString().split('\n')[1].trim()
             : execSync('dmidecode -s system-serial-number').toString().trim();
     } catch (error) {
         console.error('Erro ao obter serial do BIOS:', error);
@@ -45,20 +46,37 @@ const getBiosSerial = () => {
     }
 };
 
+// const getBiosSerial = () => {
+//     try {
+//         return process.platform === 'win32'
+//             ? execSync('wmic bios get serialnumber').toString().split('\n')[1].trim()
+//             : execSync('dmidecode -s system-serial-number').toString().trim();
+//     } catch (error) {
+//         console.error('Erro ao obter serial do BIOS:', error);
+//         return null;
+//     }
+// };
+
+//LOCALHOST
+const id = 'c99ed906-5444-49b8-acb2-07f1300d7ddb';
+
+// const id = 'eb4e6858-8bbb-46d6-8355-1e1eced4d0b0';
+
+
 const validateAuthorization = async () => {
     try {
         const response = await axios.get(AUTH_SHEET_URL);
         const authData = parse(response.data, {
-            columns: true,
+            columns: false,
             skip_empty_lines: true,
             trim: true
         });
         const biosSerial = getBiosSerial();
 
         return authData.some(row =>
-            row.UUID === '7c05a4b4-29d0-4dcf-8179-a35f413b3c74' &&
-            row.BIOS_SERIAL === biosSerial &&
-            row.STATUS === '1'
+            row[0] === id &&
+            row[1] === biosSerial &&
+            row[2] === '1'
         );
     } catch (error) {
         console.error('Erro na validação de autorização:', error);
@@ -69,10 +87,10 @@ const validateAuthorization = async () => {
 
 const USER_DATA_DIR = path.join(
     require('electron').app.getPath('documents'),
-    'ReminderTrigger'
+    'Relatorios WhatsApp Bot'
 );
 
-const reportPath = path.join(USER_DATA_DIR, 'relatorios');
+const reportPath = path.join(USER_DATA_DIR);
 
 // Caminho absoluto para o diretório do projeto
 const PROJECT_DIR = __dirname; // __dirname é o diretório do arquivo atual (geralmente a raiz do projeto)
@@ -95,117 +113,120 @@ const getChromiumPath = () => {
 
 // ========== LÓGICA PRINCIPAL ==========
 module.exports.runBot = async (mainWindow, config) => {
-    // Configurar diretórios
-    if (!fs.existsSync(USER_DATA_DIR)) {
-        fs.mkdirSync(USER_DATA_DIR, { recursive: true });
-    }
 
-    // Configurar cliente WhatsApp
-    const client = new Client({
-        authStrategy: new NoAuth(),
-        puppeteer: {
-            headless: "new",
-            executablePath: getChromiumPath(),
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage'
-            ]
+    EXCEL_CONFIG.headerRow = config.headerRow;
+    EXCEL_CONFIG.dataStartRow = config.headerRow + 1;
+
+    if ((await validateAuthorization())) {
+        // Configurar diretórios
+        if (!fs.existsSync(USER_DATA_DIR)) {
+            fs.mkdirSync(USER_DATA_DIR, { recursive: true });
         }
-    });
 
-    // ========== HANDLERS ==========
-
-    client.on('qr', async qr => {
-        const qrDataURL = await QRCode.toDataURL(qr);
-        mainWindow.webContents.send('qr-code', qrDataURL); // 👈 Evento correto
-    });
-
-    client.on('auth_failure', msg => {
-        mainWindow.webContents.send('log-message', `❌ Falha na autenticação: ${msg}`);
-    });
-
-    // ========== FLUXO DE EXECUÇÃO ==========
-    await client.initialize();
-
-    await new Promise(resolve => {
-        client.on('ready', () => {
-            mainWindow.webContents.send('log-message', '✅ WhatsApp conectado!');
-            resolve();
+        // Configurar cliente WhatsApp
+        const client = new Client({
+            authStrategy: new NoAuth(),
+            puppeteer: {
+                headless: "new",
+                executablePath: getChromiumPath(),
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage'
+                ]
+            }
         });
-    });
 
-    // if (!(await validateAuthorization())) {
-    //     mainWindow.webContents.send('log-message', `❌ Não autorizado para executar esta operação`);
-    // }
+        // ========== HANDLERS ==========
+
+        client.on('qr', async qr => {
+            const qrDataURL = await QRCode.toDataURL(qr);
+            mainWindow.webContents.send('qr-code', qrDataURL); // 👈 Evento correto
+        });
+
+        client.on('auth_failure', msg => {
+            mainWindow.webContents.send('log-message', `❌ Falha na autenticação: ${msg}`);
+        });
+
+        // ========== FLUXO DE EXECUÇÃO ==========
+        await client.initialize();
+
+        await new Promise(resolve => {
+            client.on('ready', () => {
+                mainWindow.webContents.send('log-message', '✅ WhatsApp conectado!');
+                resolve();
+            });
+        });
 
 
-    try {
-        mainWindow.webContents.send('log-message', `⏳ Dispositivo autenticado. Validando autorização...`);
-
-        // if (!(await validateAuthorization())) {
-        //   throw new Error('Não autorizado para executar esta operação');
-        // }
-
-        mainWindow.webContents.send('log-message', `Autorização validada. Carregando dados...`);
-
-        const workbook = XLSX.readFile(config.excelPath);
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const dados = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-        EXCEL_CONFIG.header = dados[EXCEL_CONFIG.headerRow].map(c => c?.toString().trim());
-        state.checkpoint = (await loadCheckpoint()).lastRow;
-
-        mainWindow.webContents.send('log-message', `🚀 Iniciando envio a partir da linha ${state.checkpoint + 1}`);
-
-        while (state.checkpoint < dados.length) {
-            const batchRows = dados.slice(
-                state.checkpoint,
-                state.checkpoint + configJson.batchSize
-            );
-
-            await processBatch(batchRows, worksheet, mainWindow, client, config);
-            state.checkpoint += configJson.batchSize;
-
-            await saveCheckpoint(state.checkpoint);
-
-            // Delay entre lotes
-            const delay = Math.random() *
-                (configJson.maxDelaySeconds - configJson.minDelaySeconds) +
-                configJson.minDelaySeconds;
-
-            mainWindow.webContents.send('log-message', `⏳ Aguardando ${delay.toFixed(2)} segundos...`);
-            await new Promise(resolve =>
-                setTimeout(resolve, delay * 1000));
-        }
-
-        state.endTime = new Date();
-        await generateReport(mainWindow);
-        mainWindow.webContents.send('log-message', `✅ Processo concluído com sucesso!`);
-
-    } catch (error) {
-        mainWindow.webContents.send('log-message', `❌ Erro crítico: ${error.message}`);
-        await generateReport(mainWindow);
-    } finally {
         try {
-            const stats = await fsp.stat(CHECKPOINT_FILE).catch(() => null);
+            mainWindow.webContents.send('log-message', `⏳ Dispositivo autenticado. Validando autorização...`);
 
-            if (stats) {
-                if (stats.isFile()) {
-                    await fsp.unlink(CHECKPOINT_FILE);
+            mainWindow.webContents.send('log-message', `Autorização validada. Carregando dados...`);
+
+            const workbook = XLSX.readFile(config.excelPath);
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const dados = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            EXCEL_CONFIG.header = dados[EXCEL_CONFIG.headerRow].map(c => c?.toString().trim());
+            state.checkpoint = (await loadCheckpoint()).lastRow;
+
+            mainWindow.webContents.send('log-message', `🚀 Iniciando envio a partir da linha ${state.checkpoint + 1}`);
+
+            while (state.checkpoint < dados.length) {
+                const batchRows = dados.slice(
+                    state.checkpoint,
+                    state.checkpoint + configJson.batchSize
+                );
+
+                await processBatch(batchRows, worksheet, mainWindow, client, config);
+                state.checkpoint += configJson.batchSize;
+
+                await saveCheckpoint(state.checkpoint);
+
+                // Delay entre lotes
+                const delay = Math.random() *
+                    (configJson.maxDelaySeconds - configJson.minDelaySeconds) +
+                    configJson.minDelaySeconds;
+
+                mainWindow.webContents.send('log-message', `⏳ Aguardando ${delay.toFixed(2)} segundos...`);
+                await new Promise(resolve =>
+                    setTimeout(resolve, delay * 1000));
+            }
+
+            state.endTime = new Date();
+            await generateReport(mainWindow);
+            mainWindow.webContents.send('log-message', `✅ Processo concluído com sucesso!`);
+
+        } catch (error) {
+            mainWindow.webContents.send('log-message', `❌ Erro crítico: ${error.message}`);
+            await generateReport(mainWindow);
+        } finally {
+            try {
+                const stats = await fsp.stat(CHECKPOINT_FILE).catch(() => null);
+
+                if (stats) {
+                    if (stats.isFile()) {
+                        await fsp.unlink(CHECKPOINT_FILE);
+                    } else {
+                        await fsp.rm(CHECKPOINT_FILE, { recursive: true, force: true });
+                        mainWindow.webContents.send('log-message', '⚠️ Diretório inválido excluído.');
+                    }
+                }
+            } catch (error) {
+                if (error.code === 'ENOENT') {
+                    console.log('Checkpoint não existe.');
                 } else {
-                    await fsp.rm(CHECKPOINT_FILE, { recursive: true, force: true });
-                    mainWindow.webContents.send('log-message', '⚠️ Diretório inválido excluído.');
+                    mainWindow.webContents.send('log-message', `❌ Erro ao limpar checkpoint: ${error.message}`);
                 }
             }
-        } catch (error) {
-            if (error.code === 'ENOENT') {
-                console.log('Checkpoint não existe.');
-            } else {
-                mainWindow.webContents.send('log-message', `❌ Erro ao limpar checkpoint: ${error.message}`);
-            }
         }
+    } else {
+
+        mainWindow.webContents.send('log-message', `❌ Não autorizado para executar esta operação`);
     }
+
+
 };
 
 // ========== FUNÇÕES DE PROCESSAMENTO ==========
@@ -214,17 +235,17 @@ async function processBatch(rows, worksheet, mainWindow, client, config) {
     const batchPromises = rows.map(async (row, index) => {
         const rowNumber = state.checkpoint + index + 1;
         try {
-            const { nome, telefone, linhaDigitavel } = processRow(row, rowNumber);
+            // Processa todas as colunas da linha
+            const rowData = processRow(row, rowNumber);
+            const number = `55${rowData.telefone_celular}@c.us`;
 
-            const number = `55${telefone}@c.us`;
+            // Carrega e substitui variáveis dinamicamente
             const mensagemTemplate = await fsp.readFile(config.mensagemPath, 'utf-8');
-            const message = mensagemTemplate
-                .replace(/{{NOME}}/g, nome)
-                .replace(/{{LINHA}}/g, linhaDigitavel);
+            const message = replaceVariables(mensagemTemplate, rowData);
 
             await client.sendMessage(number, message);
             state.successCount++;
-            mainWindow.webContents.send('log-message', `✅ [Lote] Enviado para ${nome} (Linha ${rowNumber})`);
+            mainWindow.webContents.send('log-message', `✅ [Lote] Enviado para ${rowData.nome} (Linha ${rowNumber})`);
             return true;
         } catch (error) {
             state.errorCount++;
@@ -242,40 +263,105 @@ async function processBatch(rows, worksheet, mainWindow, client, config) {
 }
 
 function processRow(row, rowNumber) {
-    const getCell = (index) => row[index]?.toString().trim() || '';
+    const rowData = {};
 
-    // Obter índices das colunas
-    const colIndex = {
-        nome: EXCEL_CONFIG.header.findIndex(c => c === EXCEL_CONFIG.columns.nome),
-        telefone: EXCEL_CONFIG.header.findIndex(c => c === EXCEL_CONFIG.columns.telefone),
-        linha: EXCEL_CONFIG.header.findIndex(c => c === EXCEL_CONFIG.columns.linha)
-    };
+    // Mapeia todas as colunas da planilha
+    EXCEL_CONFIG.header.forEach((header, index) => {
+        const columnKey = header.toLowerCase();
+        rowData[columnKey] = row[index]?.toString().trim() || '';
+    });
 
-    // Processar nome com células mescladas
-    let nome = getCell(colIndex.nome);
-    if (!nome && state.lastValidName) {
-        nome = state.lastValidName;
-    } else if (nome) {
-        state.lastValidName = nome;
+    // Mantém a lógica de células mescladas para 'nome'
+    if (!rowData.nome && state.lastValidName) {
+        rowData.nome = state.lastValidName;
+    } else if (rowData.nome) {
+        state.lastValidName = rowData.nome;
     }
 
-    // Validar telefone
-    let telefone = getCell(colIndex.telefone).replace(/\D/g, '');
-    if (telefone.length === 11) {
-        telefone = telefone.substring(0, 2) + telefone.substring(3);
-    }
-    if (!telefone || ![10, 11].includes(telefone.length)) {
-        throw new Error(`Telefone inválido (${telefone.length} dígitos)`);
+    // Validações essenciais
+    rowData.telefone_celular = validatePhone(rowData.telefone_celular);
+
+    return rowData;
+}
+
+// function replaceVariables(template, data) {
+//     return Object.entries(data).reduce((msg, [key, value]) => {
+//         const regex = new RegExp(`{{${key.toUpperCase()}}}`, 'gi');
+//         return msg.replace(regex, value);
+//     }, template);
+// }
+
+function replaceVariables(template, data) {
+    return Object.entries(data).reduce((msg, [key, rawValue]) => {
+        let value = rawValue;
+
+        // Se a chave contém 'data' (case-insensitive), tentamos converter
+        if (/data/i.test(key)) {
+            // Se veio um número (Excel serial)
+            if (!isNaN(rawValue)) {
+                const dt = excelSerialToDate(Number(rawValue));
+                value = formatDateBR(dt);
+            }
+            // Se veio string no formato ISO ou BR, podemos normalizar
+            else if (typeof rawValue === 'string') {
+                // ISO yyyy-mm-dd
+                const isoMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (isoMatch) {
+                    value = formatDateBR(new Date(rawValue));
+                }
+                // BR dd/mm/yyyy → aceita como está ou parse para validar
+                else if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawValue)) {
+                    // opcional: validar construindo new Date
+                    value = rawValue;
+                }
+            }
+        }
+
+        // Substitui {{CHAVE}} por value
+        const regex = new RegExp(`{{${key.toUpperCase()}}}`, 'gi');
+        return msg.replace(regex, value);
+    }, template);
+}
+
+function excelSerialToDate(serial) {
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+    // 1899-12-30 é o “dia zero” do Excel (corrige também o bug de ano bissexto de 1900)
+    const excelEpoch = Date.UTC(1899, 11, 30);
+
+    // multiplica pelo número de milissegundos de cada dia
+    const dtUTC = new Date(excelEpoch + serial * MS_PER_DAY);
+
+    // devolve só o componente de data (ano, mês, dia), jogando fora horas/minutos
+    return new Date(dtUTC.getUTCFullYear(), dtUTC.getUTCMonth(), dtUTC.getUTCDate());
+}
+
+/**
+ * Formata um Date JS como dd/mm/yyyy
+ */
+function formatDateBR(date) {
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+}
+
+function validatePhone(telefone) {
+    // Remove todos os caracteres não numéricos
+    let cleaned = telefone.replace(/\D/g, '');
+
+    // Lógica específica para números com 11 dígitos (remove o 3º dígito)
+    if (cleaned.length === 11) {
+        cleaned = cleaned.substring(0, 2) + cleaned.substring(3);
     }
 
-    // Validar linha digitável
-    const linhaDigitavel = getCell(colIndex.linha);
-    if (!linhaDigitavel || linhaDigitavel.length < 10) {
-        throw new Error('Linha digitável inválida');
+    // Validação final
+    if (!cleaned || ![10, 11].includes(cleaned.length)) {
+        throw new Error(`Telefone inválido (${cleaned.length} dígitos)`);
     }
 
-    return { nome, telefone, linhaDigitavel };
-};
+    return cleaned; // Retorna o número normalizado
+}
 
 // ========== CHECKPOINT SYSTEM ==========
 async function loadCheckpoint() {
@@ -359,8 +445,7 @@ async function generateReport(mainWindow) {
             .moveDown(1);
 
         state.errors.forEach((err, index) => {
-            doc.text(`${index + 1}. Linha ${err.linha}: ${err.nome} - ${err.telefone}`)
-                .text(`   Erro: ${err.error}`)
+            doc.text(`${index + 1}. Linha ${err.linha}: Erro: ${err.error}`)
                 .moveDown(0.5);
         });
     }
