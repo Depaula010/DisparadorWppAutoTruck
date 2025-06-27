@@ -14,9 +14,16 @@ const { execSync } = require('child_process');
 // ========== CONFIGURAÇÕES ==========
 
 //LOCALHOST
-const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjLdHJqFuhYcRfny13nrr7aVjlZerHTx7LbDga_KrLGRYB2z3KsRqRuex7vkf_fWITtA5aSd6QSaBq/pub?gid=0&single=true&output=csv';
+// const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjLdHJqFuhYcRfny13nrr7aVjlZerHTx7LbDga_KrLGRYB2z3KsRqRuex7vkf_fWITtA5aSd6QSaBq/pub?gid=0&single=true&output=csv';
 
-// const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTGckb-3zRCzzV0dYKjJDSlgUYiwy8fL0N_sMYDJgfrwuDhHap1x4QyvI_z9kvy4TF_q0mRh5UCl3B/pub?gid=0&single=true&output=csv';
+const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTGckb-3zRCzzV0dYKjJDSlgUYiwy8fL0N_sMYDJgfrwuDhHap1x4QyvI_z9kvy4TF_q0mRh5UCl3B/pub?output=csv';
+
+//LOCALHOST
+// const id = 'c99ed906-5444-49b8-acb2-07f1300d7ddb';
+
+const id = 'eb4e6858-8bbb-46d6-8355-1e1eced4d0b0';
+
+
 
 const EXCEL_CONFIG = {
     headerRow: 0,
@@ -46,21 +53,16 @@ const getBiosSerialLocal = () => {
     }
 };
 
-// const getBiosSerial = () => {
-//     try {
-//         return process.platform === 'win32'
-//             ? execSync('wmic bios get serialnumber').toString().split('\n')[1].trim()
-//             : execSync('dmidecode -s system-serial-number').toString().trim();
-//     } catch (error) {
-//         console.error('Erro ao obter serial do BIOS:', error);
-//         return null;
-//     }
-// };
-
-//LOCALHOST
-const id = 'c99ed906-5444-49b8-acb2-07f1300d7ddb';
-
-// const id = 'eb4e6858-8bbb-46d6-8355-1e1eced4d0b0';
+const getBiosSerial = () => {
+    try {
+        return process.platform === 'win32'
+            ? execSync('wmic bios get serialnumber').toString().split('\n')[1].trim()
+            : execSync('dmidecode -s system-serial-number').toString().trim();
+    } catch (error) {
+        console.error('Erro ao obter serial do BIOS:', error);
+        return null;
+    }
+};
 
 
 const validateAuthorization = async () => {
@@ -71,6 +73,7 @@ const validateAuthorization = async () => {
             skip_empty_lines: true,
             trim: true
         });
+
         // const biosSerial = getBiosSerialLocal();
         const biosSerial = getBiosSerial();
 
