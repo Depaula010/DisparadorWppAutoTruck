@@ -13,15 +13,16 @@ const { execSync } = require('child_process');
 
 // ========== CONFIGURAÇÕES ==========
 
-//LOCALHOST
-// const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjLdHJqFuhYcRfny13nrr7aVjlZerHTx7LbDga_KrLGRYB2z3KsRqRuex7vkf_fWITtA5aSd6QSaBq/pub?gid=0&single=true&output=csv';
+// Função para detectar ambiente (lazy evaluation - só executa quando chamada)
+const isProduction = () => require('electron').app.isPackaged;
 
-const AUTH_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTGckb-3zRCzzV0dYKjJDSlgUYiwy8fL0N_sMYDJgfrwuDhHap1x4QyvI_z9kvy4TF_q0mRh5UCl3B/pub?output=csv';
+const getAuthSheetUrl = () => isProduction()
+    ? 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTGckb-3zRCzzV0dYKjJDSlgUYiwy8fL0N_sMYDJgfrwuDhHap1x4QyvI_z9kvy4TF_q0mRh5UCl3B/pub?output=csv'
+    : 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjLdHJqFuhYcRfny13nrr7aVjlZerHTx7LbDga_KrLGRYB2z3KsRqRuex7vkf_fWITtA5aSd6QSaBq/pub?gid=0&single=true&output=csv';
 
-//LOCALHOST
-// const id = 'c99ed906-5444-49b8-acb2-07f1300d7ddb';
-
-const id = 'eb4e6858-8bbb-46d6-8355-1e1eced4d0b0';
+const getId = () => isProduction()
+    ? 'eb4e6858-8bbb-46d6-8355-1e1eced4d0b0'
+    : 'c99ed906-5444-49b8-acb2-07f1300d7ddb';
 
 
 
@@ -42,22 +43,16 @@ let state = {
 };
 
 
-const getBiosSerialLocal = () => {
-    try {
-        return process.platform === 'win32'
-            ? execSync('wmic csproduct get uuid').toString().split('\n')[1].trim()
-            : execSync('dmidecode -s system-serial-number').toString().trim();
-    } catch (error) {
-        console.error('Erro ao obter serial do BIOS:', error);
-        return null;
-    }
-};
-
 const getBiosSerial = () => {
     try {
-        return process.platform === 'win32'
-            ? execSync('wmic bios get serialnumber').toString().split('\n')[1].trim()
-            : execSync('dmidecode -s system-serial-number').toString().trim();
+        if (process.platform !== 'win32') {
+            return execSync('dmidecode -s system-serial-number').toString().trim();
+        }
+        // Windows: usar UUID local (dev) ou serial de BIOS (produção)
+        const command = isProduction()
+            ? 'wmic bios get serialnumber'
+            : 'wmic csproduct get uuid';
+        return execSync(command).toString().split('\n')[1].trim();
     } catch (error) {
         console.error('Erro ao obter serial do BIOS:', error);
         return null;
@@ -67,18 +62,17 @@ const getBiosSerial = () => {
 
 const validateAuthorization = async () => {
     try {
-        const response = await axios.get(AUTH_SHEET_URL);
+        const response = await axios.get(getAuthSheetUrl());
         const authData = parse(response.data, {
             columns: false,
             skip_empty_lines: true,
             trim: true
         });
 
-        // const biosSerial = getBiosSerialLocal();
         const biosSerial = getBiosSerial();
 
         return authData.some(row =>
-            row[0] === id &&
+            row[0] === getId() &&
             row[1] === biosSerial &&
             row[2] === '1'
         );
@@ -102,14 +96,14 @@ const CHECKPOINT_FILE = path.join(PROJECT_DIR, 'checkpoint.json');
 
 // ========== HELPERS ==========
 const getChromiumPath = () => {
-    const appPath = require('electron').app.isPackaged
+    const appPath = isProduction()
         ? path.join(path.dirname(require('electron').app.getPath('exe')), 'resources')
         : __dirname;
 
     return path.join(
         appPath,
         'puppeteer-chromium',
-        'win64-1083080', // Mantenha esse nome exato
+        'win64-1083080',
         'chrome-win',
         'chrome.exe'
     );
@@ -133,6 +127,7 @@ module.exports.runBot = async (mainWindow, config) => {
             puppeteer: {
                 headless: "new",
                 executablePath: getChromiumPath(),
+                timeout: 60000,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -261,7 +256,7 @@ async function processBatch(rows, worksheet, mainWindow, client, config) {
             const mensagemTemplate = await fsp.readFile(config.mensagemPath, 'utf-8');
             const message = replaceVariables(mensagemTemplate, rowData);
 
-            await client.sendMessage(number, message);
+            await client.sendMessage(number, message, { sendSeen: false });
             state.successCount++;
             mainWindow.webContents.send('log-message', `✅ [Lote] Enviado para ${rowData.nome} (Linha ${rowNumber})`);
             return true;
