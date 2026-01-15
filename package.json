@@ -33,7 +33,7 @@
             "requestedExecutionLevel": "requireAdministrator",
             "extraResources": [
                 {
-                    "from": "node_modules/puppeteer-core/.local-chromium",
+                    "from": "puppeteer-chromium",
                     "to": "puppeteer-chromium",
                     "filter": [
                         "**/*"
