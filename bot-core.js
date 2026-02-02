@@ -94,21 +94,6 @@ const reportPath = path.join(USER_DATA_DIR);
 const PROJECT_DIR = __dirname; // __dirname é o diretório do arquivo atual (geralmente a raiz do projeto)
 const CHECKPOINT_FILE = path.join(PROJECT_DIR, 'checkpoint.json');
 
-// ========== HELPERS ==========
-const getChromiumPath = () => {
-    const appPath = isProduction()
-        ? path.join(path.dirname(require('electron').app.getPath('exe')), 'resources')
-        : __dirname;
-
-    return path.join(
-        appPath,
-        'puppeteer-chromium',
-        'win64-1083080',
-        'chrome-win',
-        'chrome.exe'
-    );
-};
-
 // ========== LÓGICA PRINCIPAL ==========
 module.exports.runBot = async (mainWindow, config) => {
 
@@ -125,13 +110,16 @@ module.exports.runBot = async (mainWindow, config) => {
         const client = new Client({
             authStrategy: new LocalAuth({ clientId: "bot-wpp" }),
             puppeteer: {
-                headless: "new",
-                executablePath: getChromiumPath(),
-                timeout: 60000,
+                headless: true,
+                timeout: 0,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage'
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--disable-extensions'
                 ]
             }
         });

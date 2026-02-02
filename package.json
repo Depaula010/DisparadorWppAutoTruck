@@ -14,10 +14,10 @@
         "axios": "^1.6.2",
         "csv-parse": "^5.5.0",
         "pdfkit": "^0.13.0",
-        "puppeteer": "21.10.0",
-        "puppeteer-core": "21.10.0",
+        "puppeteer": "^23.0.0",
+        "puppeteer-core": "^23.0.0",
         "qrcode": "^1.5.4",
-        "whatsapp-web.js": "^1.33.2",
+        "whatsapp-web.js": "^1.34.6",
         "xlsx": "^0.18.5"
     },
     "devDependencies": {
@@ -32,13 +32,6 @@
             "icon": "assets/icon.ico",
             "requestedExecutionLevel": "requireAdministrator",
             "extraResources": [
-                {
-                    "from": "puppeteer-chromium",
-                    "to": "puppeteer-chromium",
-                    "filter": [
-                        "**/*"
-                    ]
-                },
                 {
                     "from": "node_modules/whatsapp-web.js",
                     "to": "node_modules/whatsapp-web.js"
