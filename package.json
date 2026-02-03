@@ -35,6 +35,10 @@
                 {
                     "from": "node_modules/whatsapp-web.js",
                     "to": "node_modules/whatsapp-web.js"
+                },
+                {
+                    "from": "chrome-win64",
+                    "to": "chrome-win64"
                 }
             ],
             "asar": false,

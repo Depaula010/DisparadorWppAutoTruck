@@ -1,7 +1,10 @@
 node_modules/
 .wwebjs_cache/
+.wwebjs_auth/
 dist/
 dist_resources/
 puppeteer-chromium/
+chrome-win64/
 session/
 session-bot-wpp/
+checkpoint.json
